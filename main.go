@@ -3,20 +3,24 @@ package main
 import (
 	"bufio"
 	"flag"
-	"fmt"
 	"io"
-	"log"
 	"os"
+	"regexp"
 )
+
+type Matcher struct {
+	r *regexp.Regexp
+}
 
 func main() {
 	flag.Parse()
-	regexs := flag.Args()
-	_ = regexs
+	matchers := []Matcher{}
+	for _, r := range flag.Args() {
+		rx := regexp.MustCompile(r)
+		matchers = append(matchers, Matcher{r: rx})
+	}
 	w := io.MultiWriter(os.Stdout)
 	r := bufio.NewReader(os.Stdin)
-	buf := make([]byte, 0, 4*1024)
-	r
 	for {
 		line, err := r.ReadString('\n')
 		if err == io.EOF {
@@ -25,9 +29,18 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
-		w.Write([]byte(line))
+		out := match(matchers, line)
+		w.Write([]byte(out))
 	}
+}
 
+func match(ms []Matcher, line string) string {
+	for _, m := range ms {
+		if m.r.MatchString(line) {
+			return line
+		}
+	}
+	return ""
 }
 
 func count(l []byte, c byte) int {
