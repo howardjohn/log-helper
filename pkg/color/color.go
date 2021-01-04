@@ -70,6 +70,30 @@ func (g Gradiant) For(n float64) Color {
 	)
 }
 
+// From https://maketintsandshades.com/about
+func Lighten(cx Color, amount float64) Color {
+	c := cx.(color.RGBColor)
+	v := c.Values()
+	return color.RGB(
+		uint8(float64(v[0])+((255-float64(v[0]))*amount)),
+		uint8(float64(v[1])+((255-float64(v[1]))*amount)),
+		uint8(float64(v[2])+((255-float64(v[2]))*amount)),
+		c.IsEmpty(),
+	)
+}
+
+// From https://maketintsandshades.com/about
+func Darken(cx Color, amount float64) Color {
+	c := cx.(color.RGBColor)
+	v := c.Values()
+	return color.RGB(
+		uint8(float64(v[0])*(1-amount)),
+		uint8(float64(v[1])*(1-amount)),
+		uint8(float64(v[2])*(1-amount)),
+		c.IsEmpty(),
+	)
+}
+
 func NewGradiant(colors ...Color) Gradiant {
 	res := make([]color.RGBColor, 0, len(colors))
 	for _, c := range colors {
@@ -83,6 +107,10 @@ func NewGradiant(colors ...Color) Gradiant {
 		}
 	}
 	return Gradiant{res}
+}
+
+func Hex(hex string) Color {
+	return color.Hex(hex)
 }
 
 func RGB(r, g, b uint8) Color {

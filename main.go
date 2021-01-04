@@ -13,9 +13,38 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/howardjohn/log-helper/pkg/color"
 	"github.com/mkmik/argsort"
 )
+
+type Config struct {
+	Colors []string `json:"colors"`
+}
+
+func ReadConfig() (Config, error) {
+	by, err := ioutil.ReadFile(".config.yaml")
+	if os.IsNotExist(err) {
+		return Config{
+			Colors: []string{
+				`#dc322f`,
+				`#859900`,
+				`#b58900`,
+				`#268bd2`,
+				`#d33682`,
+				`#2aa198`,
+			},
+		}, nil
+	}
+	if err != nil {
+		return Config{}, err
+	}
+	c := Config{}
+	if err := yaml.Unmarshal(by, &c); err != nil {
+		return c, err
+	}
+	return c, nil
+}
 
 type Matcher struct {
 	r     *regexp.Regexp
@@ -83,14 +112,31 @@ var (
 	}
 )
 
+func ParseColors(s []string) []color.Color {
+	res := []color.Color{}
+	for _, cc := range s {
+		res = append(res, color.Hex(cc))
+	}
+	return res
+}
+
+func ExtrapolateColorList(colors []color.Color, idx int, max int) color.Color {
+	tints := max/len(colors) + 1
+	tint := idx / len(colors)
+	return color.Lighten(colors[idx%len(colors)], float64(tint)/float64(tints))
+}
+
 func main() {
 	flag.Parse()
-	if *colorTest || true {
+	cfg, err := ReadConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	if *colorTest {
 		runColorTest()
 		return
 	}
 	if *runLogs {
-
 		all, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			panic(err.Error())
@@ -101,11 +147,12 @@ func main() {
 		return
 	}
 	matchers := []Matcher{}
-	for i, r := range flag.Args() {
+	args := flag.Args()
+	for i, r := range args {
 		rx := regexp.MustCompile(r)
 		matchers = append(matchers, Matcher{
 			r:     rx,
-			color: color.StandardColors[i],
+			color: ExtrapolateColorList(ParseColors(cfg.Colors), i, len(args)),
 		})
 	}
 	w := io.MultiWriter(os.Stdout)
