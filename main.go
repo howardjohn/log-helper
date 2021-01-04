@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/gookit/color"
@@ -16,11 +18,62 @@ import (
 )
 
 type Matcher struct {
-	r *regexp.Regexp
+	r     *regexp.Regexp
+	color Color
+}
+
+type Color = color.Color
+
+func (m Matcher) FindIndexes(s string) []IndexRange {
+	res := m.r.FindAllStringIndex(s, -1)
+	ret := make([]IndexRange, 0, len(res))
+	for _, r := range res {
+		ret = append(ret, IndexRange{r[0], r[1]})
+	}
+	return ret
+}
+
+type IndexRange struct {
+	start, stop int
+}
+type ColoredIndexRange struct {
+	IndexRange
+	color Color
+}
+
+func FindAllMatches(ms []Matcher, s string) []ColoredIndexRange {
+	current := []ColoredIndexRange{}
+	for _, m := range ms {
+		res := m.FindIndexes(s)
+		for _, r := range res {
+			overlap := false
+			for _, c := range current {
+				if c.start <= r.start && r.start < c.stop {
+					overlap = true
+					break
+				}
+				if c.start <= r.stop && r.stop < c.stop {
+					overlap = true
+					break
+				}
+			}
+			if !overlap {
+				current = append(current, ColoredIndexRange{
+					IndexRange: r,
+					color:      m.color,
+				})
+			}
+		}
+	}
+	sort.Slice(current, func(i, j int) bool {
+		return current[i].start < current[j].start
+	})
+	return current
 }
 
 var (
 	colorTest = flag.Bool("test-colors", false, "test color support")
+	runLogs   = flag.Bool("logs", false, "run log highlighter")
 
 	// Log viewer
 	filterUnmatched = flag.Bool("filter", false, "filter unmatched lines")
@@ -38,20 +91,27 @@ func main() {
 		runColorTest()
 		return
 	}
-	all, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		panic(err.Error())
+	if *runLogs {
+
+		all, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			panic(err.Error())
+		}
+		if err := logTimeBuffered(all); err != nil {
+			panic(err.Error())
+		}
+		return
 	}
-	if err := logTimeBuffered(all); err != nil {
-		panic(err.Error())
-	}
-	return
 	matchers := []Matcher{}
-	for _, r := range flag.Args() {
+	for i, r := range flag.Args() {
 		rx := regexp.MustCompile(r)
-		matchers = append(matchers, Matcher{r: rx})
+		matchers = append(matchers, Matcher{
+			r:     rx,
+			color: Color(i + 31),
+		})
 	}
 	w := io.MultiWriter(os.Stdout)
+	_ = w
 	r := bufio.NewReader(os.Stdin)
 	for {
 		line, err := r.ReadString('\n')
@@ -61,9 +121,26 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
-		out := match(matchers, line)
-		w.Write([]byte(out))
+		m := FindAllMatches(matchers, line)
+		o := getLine(m, line)
+		w.Write([]byte(o))
 	}
+}
+
+func getLine(matches []ColoredIndexRange, line string) string {
+	if len(matches) == 0 {
+		return line
+	}
+	sb := strings.Builder{}
+	prev := 0
+	for _, match := range matches {
+		sb.WriteString(line[prev:match.start])
+		sb.WriteString(match.color.Sprint(line[match.start:match.stop]))
+		prev = match.stop
+	}
+	sb.WriteString(line[prev:])
+	return sb.String()
+
 }
 
 type ParsedTime struct {
@@ -234,7 +311,7 @@ func runColorTest() {
 
 func match(ms []Matcher, line string) string {
 	for _, m := range ms {
-		if m.r.MatchString(line) {
+		if got := m.FindIndexes(line); len(got) > 0 {
 			return line
 		}
 	}
