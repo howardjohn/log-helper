@@ -13,16 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gookit/color"
+	"github.com/howardjohn/log-helper/pkg/color"
 	"github.com/mkmik/argsort"
 )
 
 type Matcher struct {
 	r     *regexp.Regexp
-	color Color
+	color color.Color
 }
-
-type Color = color.Color
 
 func (m Matcher) FindIndexes(s string) []IndexRange {
 	res := m.r.FindAllStringIndex(s, -1)
@@ -38,7 +36,7 @@ type IndexRange struct {
 }
 type ColoredIndexRange struct {
 	IndexRange
-	color Color
+	color color.Color
 }
 
 func FindAllMatches(ms []Matcher, s string) []ColoredIndexRange {
@@ -107,7 +105,7 @@ func main() {
 		rx := regexp.MustCompile(r)
 		matchers = append(matchers, Matcher{
 			r:     rx,
-			color: Color(i + 31),
+			color: color.StandardColors[i],
 		})
 	}
 	w := io.MultiWriter(os.Stdout)
@@ -226,7 +224,7 @@ func logTimeBuffered(data []byte) error {
 	return nil
 }
 
-func rankToColor(rank int, total int) color.RGBColor {
+func rankToColor(rank int, total int) color.Color {
 	position := 1 - float64(rank)/float64(total)
 	if position <= 0.5 {
 		return color.RGB(255, uint8(255*position*2), 0)
@@ -300,30 +298,19 @@ func runColorTest() {
 
 	fmt.Printf("\n%-50s24-bit Color\n", " ")
 	for i := 0; i < 256; i += 2 {
-		color.RGB(255, uint8(i), 0, true).Printf(" ")
+		color.RGBBackground(255, uint8(i), 0).Printf(" ")
 	}
 	fmt.Println()
 	for i := 255; i >= 0; i -= 2 {
-		color.RGB(255-uint8(i), 255, 0, true).Printf(" ")
+		color.RGBBackground(255-uint8(i), 255, 0).Printf(" ")
 	}
 	fmt.Println()
-}
-
-func match(ms []Matcher, line string) string {
-	for _, m := range ms {
-		if got := m.FindIndexes(line); len(got) > 0 {
-			return line
-		}
+	for i := 255; i >= 0; i -= 2 {
+		color.RGBBackground(0, 255, 255-uint8(i)).Printf(" ")
 	}
-	return ""
-}
-
-func count(l []byte, c byte) int {
-	i := 0
-	for _, gc := range l {
-		if gc == c {
-			i++
-		}
+	fmt.Println()
+	for i := 0; i < 256; i += 2 {
+		color.RGBBackground(0, uint8(i), 255).Printf(" ")
 	}
-	return i
+	fmt.Println()
 }
