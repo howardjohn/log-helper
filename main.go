@@ -85,7 +85,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if *colorTest {
+	if *colorTest || true {
 		runColorTest()
 		return
 	}
@@ -109,7 +109,6 @@ func main() {
 		})
 	}
 	w := io.MultiWriter(os.Stdout)
-	_ = w
 	r := bufio.NewReader(os.Stdin)
 	for {
 		line, err := r.ReadString('\n')
@@ -297,20 +296,18 @@ func runColorTest() {
 	}
 
 	fmt.Printf("\n%-50s24-bit Color\n", " ")
-	for i := 0; i < 256; i += 2 {
-		color.RGBBackground(255, uint8(i), 0).Printf(" ")
-	}
-	fmt.Println()
-	for i := 255; i >= 0; i -= 2 {
-		color.RGBBackground(255-uint8(i), 255, 0).Printf(" ")
-	}
-	fmt.Println()
-	for i := 255; i >= 0; i -= 2 {
-		color.RGBBackground(0, 255, 255-uint8(i)).Printf(" ")
-	}
-	fmt.Println()
-	for i := 0; i < 256; i += 2 {
-		color.RGBBackground(0, uint8(i), 255).Printf(" ")
+	grad := color.NewGradiant(
+		color.RGBBackground(0, 0, 0),
+		color.RGBBackground(255, 0, 0),
+		color.RGBBackground(255, 255, 0),
+		color.RGBBackground(0, 255, 0),
+		color.RGBBackground(0, 255, 255),
+		color.RGBBackground(0, 0, 255),
+		color.RGBBackground(255, 128, 255),
+		color.RGBBackground(255, 255, 255),
+	)
+	for i := 0; i <= 128; i += 1 {
+		grad.For(float64(i) / 128).Printf(" ")
 	}
 	fmt.Println()
 }
