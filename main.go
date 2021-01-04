@@ -21,6 +21,9 @@ type Matcher struct {
 
 var (
 	colorTest = flag.Bool("test-colors", false, "test color support")
+
+	// Log viewer
+	filterUnmatched = flag.Bool("filter", false, "filter unmatched lines")
 )
 
 var (
@@ -111,11 +114,13 @@ func logTimeBuffered(data []byte) error {
 		times[i] = p
 	}
 	lastTime := time.Time{}
+	timeLines := 0
 	for i := range lines {
 		p := times[i]
 		if p == nil {
 			continue
 		}
+		timeLines++
 		p.t.Sub(lastTime)
 		p.delta = p.t.Sub(lastTime)
 		lastTime = p.t
@@ -124,16 +129,17 @@ func logTimeBuffered(data []byte) error {
 	// todo blanks steal spots
 	ranks := argsort.Sort(TimeSlice(times))
 	for i, r := range ranks {
-
 		if times[r] != nil {
-			times[r].rank = i
+			times[r].rank = i - (len(ranks) - timeLines)
 		}
 	}
 	for i := range lines {
 		p := times[i]
 		line := lines[i]
 		if p == nil {
-			fmt.Println(string(line))
+			if !*filterUnmatched {
+				fmt.Println(string(line))
+			}
 			continue
 		}
 
