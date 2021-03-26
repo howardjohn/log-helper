@@ -47,8 +47,22 @@ func ReadConfig() (Config, error) {
 }
 
 type Matcher struct {
-	r     *regexp.Regexp
-	color color.Color
+	r        *regexp.Regexp
+	last     int
+	variants map[string]int
+	color    color.Color
+}
+
+var variants = []float64{0, 0.5, -0.25, 0.25, 0.75, -0.375, -0.125}
+
+func (m *Matcher) ColorFor(data string) color.Color {
+	iter, f := m.variants[data]
+	if !f {
+		m.variants[data] = m.last
+		iter = m.last
+		m.last++
+	}
+	return color.Adjust(m.color, variants[iter%len(variants)])
 }
 
 func (m Matcher) FindIndexes(s string) []IndexRange {
@@ -69,26 +83,38 @@ type ColoredIndexRange struct {
 	color color.Color
 }
 
-func FindAllMatches(ms []Matcher, s string) []ColoredIndexRange {
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func overlaps(current []ColoredIndexRange, r IndexRange) bool {
+	for _, c := range current {
+		if max(c.start, r.start) < min(c.stop, r.stop) {
+			return true
+		}
+	}
+	return false
+}
+
+func FindAllMatches(ms []*Matcher, s string) []ColoredIndexRange {
 	current := []ColoredIndexRange{}
 	for _, m := range ms {
 		res := m.FindIndexes(s)
 		for _, r := range res {
-			overlap := false
-			for _, c := range current {
-				if c.start >= r.start && c.start <= r.stop {
-					overlap = true
-					break
-				}
-				if c.stop >= r.start && c.stop <= r.stop {
-					overlap = true
-					break
-				}
-			}
-			if !overlap {
+			if !overlaps(current, r) {
 				current = append(current, ColoredIndexRange{
 					IndexRange: r,
-					color:      m.color,
+					color:      m.ColorFor(s[r.start:r.stop]),
 				})
 			}
 		}
@@ -131,6 +157,7 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+
 	if *colorTest {
 		runColorTest()
 		return
@@ -145,13 +172,14 @@ func main() {
 		}
 		return
 	}
-	matchers := []Matcher{}
+	matchers := []*Matcher{}
 	args := flag.Args()
 	for i, r := range args {
 		rx := regexp.MustCompile(r)
-		matchers = append(matchers, Matcher{
-			r:     rx,
-			color: ExtrapolateColorList(ParseColors(cfg.Colors), i, len(args)),
+		matchers = append(matchers, &Matcher{
+			r:        rx,
+			variants: map[string]int{},
+			color:    ExtrapolateColorList(ParseColors(cfg.Colors), i, len(args)),
 		})
 	}
 	w := io.MultiWriter(os.Stdout)

@@ -70,6 +70,13 @@ func (g Gradiant) For(n float64) Color {
 	)
 }
 
+func Adjust(cx Color, amount float64) Color {
+	if amount > 0 {
+		return Lighten(cx, amount)
+	}
+	return Darken(cx, -1*amount)
+}
+
 // From https://maketintsandshades.com/about
 func Lighten(cx Color, amount float64) Color {
 	c := cx.(color.RGBColor)
