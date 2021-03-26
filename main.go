@@ -27,12 +27,12 @@ func ReadConfig() (Config, error) {
 	if os.IsNotExist(err) {
 		return Config{
 			Colors: []string{
-				`#dc322f`,
-				`#859900`,
-				`#b58900`,
-				`#268bd2`,
-				`#d33682`,
-				`#2aa198`,
+				`#cb4b16`,
+				`#a2ba00`,
+				`#e1ab00`,
+				`#0096ff`,
+				`#6c71c4`,
+				`#31bbb0`,
 			},
 		}, nil
 	}
@@ -63,6 +63,7 @@ func (m Matcher) FindIndexes(s string) []IndexRange {
 type IndexRange struct {
 	start, stop int
 }
+
 type ColoredIndexRange struct {
 	IndexRange
 	color color.Color
@@ -75,11 +76,11 @@ func FindAllMatches(ms []Matcher, s string) []ColoredIndexRange {
 		for _, r := range res {
 			overlap := false
 			for _, c := range current {
-				if c.start <= r.start && r.start < c.stop {
+				if c.start >= r.start && c.start <= r.stop {
 					overlap = true
 					break
 				}
-				if c.start <= r.stop && r.stop < c.stop {
+				if c.stop >= r.start && c.stop <= r.stop {
 					overlap = true
 					break
 				}
@@ -106,11 +107,9 @@ var (
 	filterUnmatched = flag.Bool("filter", false, "filter unmatched lines")
 )
 
-var (
-	knownLogFormats = []*regexp.Regexp{
-		regexp.MustCompile(`^20..-..-..T..:..:..\.......Z\t`),
-	}
-)
+var knownLogFormats = []*regexp.Regexp{
+	regexp.MustCompile(`^20..-..-..T..:..:..\.......Z\t`),
+}
 
 func ParseColors(s []string) []color.Color {
 	res := []color.Color{}
@@ -178,13 +177,15 @@ func getLine(matches []ColoredIndexRange, line string) string {
 	sb := strings.Builder{}
 	prev := 0
 	for _, match := range matches {
+		if prev > match.start {
+			continue
+		}
 		sb.WriteString(line[prev:match.start])
 		sb.WriteString(match.color.Sprint(line[match.start:match.stop]))
 		prev = match.stop
 	}
 	sb.WriteString(line[prev:])
 	return sb.String()
-
 }
 
 type ParsedTime struct {
