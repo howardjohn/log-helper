@@ -92,7 +92,7 @@ func TestOverlaps(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := overlaps(tt.current, tt.r); got != tt.want {
+			if got := overlaps(tt.current, tt.r.IndexRange); got != tt.want {
 				t.Errorf("overlaps() = %v, want %v", got, tt.want)
 			}
 		})

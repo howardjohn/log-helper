@@ -6,7 +6,7 @@ import (
 )
 
 func TestDistance(t *testing.T) {
-	desired := 5
+	desired := 10
 	items := []float64{0}
 	max := 1.0
 	min := 0.0
@@ -17,7 +17,8 @@ func TestDistance(t *testing.T) {
 		for n := min; n <= max; n += interval {
 			totalDistance := float64(0)
 			for _, item := range items {
-				totalDistance += math.Abs(item - n)
+				t.Logf("%v to %v: %v", item, n, math.Abs(item-n)*math.Abs(item-n))
+				totalDistance += math.Abs(item-n) * math.Abs(item-n)
 			}
 			if maxDistance == -1 || totalDistance > maxDistance {
 				maxDistance = totalDistance
