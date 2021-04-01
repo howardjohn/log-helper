@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -18,32 +19,48 @@ import (
 	"github.com/mkmik/argsort"
 )
 
+type ConfigFile struct {
+	Presets map[string]Config `json:"presets"`
+}
+
 type Config struct {
 	Colors []string `json:"colors"`
 }
 
-func ReadConfig() (Config, error) {
-	by, err := ioutil.ReadFile(".config.yaml")
+func ReadConfig(preset string) (Config, error) {
+	defaultConfig := Config{
+		Colors: []string{
+			`#cb4b16`,
+			`#a2ba00`,
+			`#e1ab00`,
+			`#0096ff`,
+			`#6c71c4`,
+			`#31bbb0`,
+		},
+	}
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return Config{}, err
+	}
+	by, err := ioutil.ReadFile(filepath.Join(base, "log-helper/config.yaml"))
 	if os.IsNotExist(err) {
-		return Config{
-			Colors: []string{
-				`#cb4b16`,
-				`#a2ba00`,
-				`#e1ab00`,
-				`#0096ff`,
-				`#6c71c4`,
-				`#31bbb0`,
-			},
-		}, nil
+		return defaultConfig, nil
 	}
 	if err != nil {
 		return Config{}, err
 	}
-	c := Config{}
+	c := ConfigFile{}
 	if err := yaml.Unmarshal(by, &c); err != nil {
-		return c, err
+		return Config{}, err
 	}
-	return c, nil
+	cfg, f := c.Presets[preset]
+	if !f {
+		if preset == "default" {
+			return defaultConfig, nil
+		}
+		return Config{}, fmt.Errorf("preset %q not defined", preset)
+	}
+	return cfg, nil
 }
 
 type Matcher struct {
@@ -129,6 +146,7 @@ var (
 	colorTest = flag.Bool("test-colors", false, "test color support")
 	runLogs   = flag.Bool("logs", false, "run log highlighter")
 
+	preset = flag.String("preset", "default", "preset configuration to use")
 	// Log viewer
 	filterUnmatched = flag.Bool("filter", false, "filter unmatched lines")
 )
@@ -153,7 +171,7 @@ func ExtrapolateColorList(colors []color.Color, idx int, max int) color.Color {
 
 func main() {
 	flag.Parse()
-	cfg, err := ReadConfig()
+	cfg, err := ReadConfig(*preset)
 	if err != nil {
 		panic(err.Error())
 	}
