@@ -23,8 +23,31 @@ type ConfigFile struct {
 	Presets map[string]Config `json:"presets"`
 }
 
+type ConfigMatcher struct {
+	Regex string `json:"regex"`
+}
+
 type Config struct {
-	Colors []string `json:"colors"`
+	Colors   []string        `json:"colors"`
+	Matchers []ConfigMatcher `json:"matchers"`
+}
+
+func (c Config) GetMatchers(extra []string) []*Matcher {
+	matchers := c.Matchers
+	for _, m := range extra {
+		matchers = append(matchers, ConfigMatcher{Regex: m})
+	}
+	colors := ParseColors(c.Colors)
+	resp := []*Matcher{}
+	for i, r := range matchers {
+		rx := regexp.MustCompile(r.Regex)
+		resp = append(resp, &Matcher{
+			r:        rx,
+			variants: map[string]int{},
+			color:    ExtrapolateColorList(colors, i, len(matchers)),
+		})
+	}
+	return resp
 }
 
 func ReadConfig(preset string) (Config, error) {
@@ -190,16 +213,8 @@ func main() {
 		}
 		return
 	}
-	matchers := []*Matcher{}
-	args := flag.Args()
-	for i, r := range args {
-		rx := regexp.MustCompile(r)
-		matchers = append(matchers, &Matcher{
-			r:        rx,
-			variants: map[string]int{},
-			color:    ExtrapolateColorList(ParseColors(cfg.Colors), i, len(args)),
-		})
-	}
+	matchers := cfg.GetMatchers(flag.Args())
+
 	w := io.MultiWriter(os.Stdout)
 	r := bufio.NewReader(os.Stdin)
 	for {
