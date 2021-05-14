@@ -175,7 +175,7 @@ var (
 )
 
 var knownLogFormats = []*regexp.Regexp{
-	regexp.MustCompile(`^20..-..-..T..:..:..\.......Z\t`),
+	regexp.MustCompile(`^20..-..-..T..:..:..\.......Z\s`),
 }
 
 func ParseColors(s []string) []color.Color {
