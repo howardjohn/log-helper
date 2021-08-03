@@ -58,7 +58,7 @@ func compileRegex(regex string) *regexp.Regexp {
 		trim = true
 		_ = base
 	}
-	if *caseInsensitive {
+	if flagValues.caseInsensitive {
 		regex = `(?i)` + regex
 	}
 	_ = trim
@@ -184,15 +184,29 @@ func FindAllMatches(ms []*Matcher, s string) []ColoredIndexRange {
 	return current
 }
 
-var (
-	colorTest       = flag.Bool("test-colors", false, "test color support")
-	caseInsensitive = flag.Bool("i", false, "case insensitive")
-	runLogs         = flag.Bool("logs", false, "run log highlighter")
+type flags struct {
+	colorTest bool
+	runLogs   bool
 
-	preset = flag.String("preset", "default", "preset configuration to use")
-	// Log viewer
-	filterUnmatched = flag.Bool("filter", false, "filter unmatched lines")
-)
+	caseInsensitive bool
+	filterUnmatched bool
+
+	preset string
+}
+
+var flagValues = flags{
+	preset: "default",
+}
+
+func init() {
+	flag.BoolVar(&flagValues.colorTest, "test-colors", flagValues.colorTest, "test color support")
+	flag.BoolVar(&flagValues.caseInsensitive, "i", flagValues.caseInsensitive, "case insensitive")
+	flag.BoolVar(&flagValues.runLogs, "logs", flagValues.runLogs, "run log highlighter")
+
+	flag.StringVar(&flagValues.preset, "preset", flagValues.preset, "preset configuration to use")
+	flag.StringVar(&flagValues.preset, "p", flagValues.preset, "preset configuration to use (shorthand)")
+	flag.BoolVar(&flagValues.filterUnmatched, "filter", flagValues.filterUnmatched, "filter unmatched lines")
+}
 
 var knownLogFormats = []*regexp.Regexp{
 	regexp.MustCompile(`^20..-..-..T..:..:..\.......Z\s`),
@@ -214,16 +228,16 @@ func ExtrapolateColorList(colors []color.Color, idx int, max int) color.Color {
 
 func main() {
 	flag.Parse()
-	cfg, err := ReadConfig(*preset)
+	cfg, err := ReadConfig(flagValues.preset)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	if *colorTest {
+	if flagValues.colorTest {
 		runColorTest()
 		return
 	}
-	if *runLogs {
+	if flagValues.runLogs {
 		all, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			panic(err.Error())
@@ -340,7 +354,7 @@ func logTimeBuffered(data []byte) error {
 		p := times[i]
 		line := lines[i]
 		if p == nil {
-			if !*filterUnmatched {
+			if !flagValues.filterUnmatched {
 				fmt.Println(string(line))
 			}
 			continue
