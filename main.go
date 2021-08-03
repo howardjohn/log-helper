@@ -40,7 +40,7 @@ func (c Config) GetMatchers(extra []string) []*Matcher {
 	colors := ParseColors(c.Colors)
 	resp := []*Matcher{}
 	for i, r := range matchers {
-		rx := regexp.MustCompile(r.Regex)
+		rx := compileRegex(r.Regex)
 		resp = append(resp, &Matcher{
 			r:        rx,
 			variants: map[string]int{},
@@ -48,6 +48,21 @@ func (c Config) GetMatchers(extra []string) []*Matcher {
 		})
 	}
 	return resp
+}
+
+func compileRegex(regex string) *regexp.Regexp {
+	trim := false
+	if strings.HasSuffix(regex, "\\x") {
+		base := strings.TrimSuffix(regex, "\\x")
+		regex = fmt.Sprintf(`(?:\s|^)%s[:=]\S+`, base)
+		trim = true
+		_ = base
+	}
+	if *caseInsensitive {
+		regex = `(?i)` + regex
+	}
+	_ = trim
+	return regexp.MustCompile(regex)
 }
 
 func ReadConfig(preset string) (Config, error) {
@@ -108,8 +123,12 @@ func (m *Matcher) ColorFor(data string) color.Color {
 func (m Matcher) FindIndexes(s string) []IndexRange {
 	res := m.r.FindAllStringIndex(s, -1)
 	ret := make([]IndexRange, 0, len(res))
-	for _, r := range res {
-		ret = append(ret, IndexRange{r[0], r[1]})
+	idx := m.r.SubexpIndex("primary")
+	if idx == -1 {
+		idx = 0
+	}
+	for _, r := range m.r.FindAllStringSubmatchIndex(s, -1) {
+		ret = append(ret, IndexRange{r[2*idx], r[2*idx+1]})
 	}
 	return ret
 }
@@ -166,8 +185,9 @@ func FindAllMatches(ms []*Matcher, s string) []ColoredIndexRange {
 }
 
 var (
-	colorTest = flag.Bool("test-colors", false, "test color support")
-	runLogs   = flag.Bool("logs", false, "run log highlighter")
+	colorTest       = flag.Bool("test-colors", false, "test color support")
+	caseInsensitive = flag.Bool("i", false, "case insensitive")
+	runLogs         = flag.Bool("logs", false, "run log highlighter")
 
 	preset = flag.String("preset", "default", "preset configuration to use")
 	// Log viewer
