@@ -161,12 +161,13 @@ func (s StaticMatchers) GetMatchers() []*Matcher {
 }
 
 type KubeMatcher struct {
-	matchers []*Matcher
-	replacer *KubeReplacer
-	colors   []color.Color
+	staticMatchers  []*Matcher
+	dynamicMatchers map[string]*Matcher
+	replacer        *KubeReplacer
+	colors          []color.Color
 }
 
-func (s KubeMatcher) GetMatchers() []*Matcher {
+func (s *KubeMatcher) GetMatchers() []*Matcher {
 	s.replacer.mu.RLock()
 	uniqReplacements := make(map[string]struct{}, len(s.replacer.replacements))
 	for _, name := range s.replacer.replacements {
@@ -182,19 +183,30 @@ func (s KubeMatcher) GetMatchers() []*Matcher {
 	})
 	replacementMatchers := make([]*Matcher, 0, len(keys))
 	for i, r := range keys {
+		if m, f := s.dynamicMatchers[r]; f {
+			replacementMatchers = append(replacementMatchers, m)
+			continue
+		}
 		rx := compileRegex(regexp.QuoteMeta(r))
-		replacementMatchers = append(replacementMatchers, &Matcher{
+		m := &Matcher{
 			r:        rx,
 			variants: map[string]int{},
-			color:    ExtrapolateColorList(s.colors, i+len(s.matchers), len(keys)+len(s.matchers)),
-		})
+			color:    ExtrapolateColorList(s.colors, i+len(s.staticMatchers), len(keys)+len(s.staticMatchers)),
+		}
+		replacementMatchers = append(replacementMatchers, m)
+		s.dynamicMatchers[r] = m
 	}
-	matchers := make([]*Matcher, 0, len(s.matchers)+len(uniqReplacements))
-	matchers = append(matchers, s.matchers...)
+	matchers := make([]*Matcher, 0, len(s.staticMatchers)+len(uniqReplacements))
+	matchers = append(matchers, s.staticMatchers...)
 	matchers = append(matchers, replacementMatchers...)
 	return matchers
 }
 
-func NewKubeMatcher(matchers []*Matcher, replacer *KubeReplacer, colors []color.Color) KubeMatcher {
-	return KubeMatcher{matchers, replacer, colors}
+func NewKubeMatcher(matchers []*Matcher, replacer *KubeReplacer, colors []color.Color) *KubeMatcher {
+	return &KubeMatcher{
+		staticMatchers:  matchers,
+		dynamicMatchers: map[string]*Matcher{},
+		replacer:        replacer,
+		colors:          colors,
+	}
 }
