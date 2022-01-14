@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type flags struct {
@@ -14,6 +15,7 @@ type flags struct {
 
 	caseInsensitive bool
 	filterUnmatched bool
+	kube            bool
 
 	preset string
 }
@@ -25,6 +27,7 @@ var flagValues = flags{
 func init() {
 	flag.BoolVar(&flagValues.colorTest, "test-colors", flagValues.colorTest, "test color support")
 	flag.BoolVar(&flagValues.caseInsensitive, "i", flagValues.caseInsensitive, "case insensitive")
+	flag.BoolVar(&flagValues.kube, "k", flagValues.kube, "replace kubernetes IPs with names")
 	flag.BoolVar(&flagValues.runLogs, "logs", flagValues.runLogs, "run log highlighter")
 
 	flag.StringVar(&flagValues.preset, "preset", flagValues.preset, "preset configuration to use")
@@ -55,6 +58,14 @@ func main() {
 	}
 	matchers := cfg.GetMatchers(flag.Args())
 
+	var replacer Replacer = strings.NewReplacer()
+	if flagValues.kube {
+		replacer, err = NewKubeReplacer()
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+
 	w := io.MultiWriter(os.Stdout)
 	r := bufio.NewReader(os.Stdin)
 	for {
@@ -65,8 +76,9 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
-		m := FindAllMatches(matchers, line)
-		o := getLine(m, line)
+		r := replacer.Replace(line)
+		m := FindAllMatches(matchers, r)
+		o := getLine(m, r)
 		w.Write([]byte(o))
 	}
 }

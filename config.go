@@ -25,6 +25,13 @@ type Config struct {
 	Matchers []ConfigMatcher `json:"matchers"`
 }
 
+type Matcher struct {
+	r        *regexp.Regexp
+	last     int
+	variants map[string]int
+	color    color.Color
+}
+
 func (c Config) GetMatchers(extra []string) []*Matcher {
 	matchers := c.Matchers
 	for _, m := range extra {
@@ -102,13 +109,6 @@ func compileRegex(regex string) *regexp.Regexp {
 		regex = `(?i)` + regex
 	}
 	return regexp.MustCompile(regex)
-}
-
-type Matcher struct {
-	r        *regexp.Regexp
-	last     int
-	variants map[string]int
-	color    color.Color
 }
 
 var variants = []float64{0, 0.5, -0.25, 0.25, 0.75, -0.375, -0.125}
