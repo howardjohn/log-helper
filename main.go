@@ -56,14 +56,17 @@ func main() {
 		}
 		return
 	}
-	matchers := cfg.GetMatchers(flag.Args())
+	staticMatch := cfg.GetMatchers(flag.Args())
+	var matchers MatcherProvider = StaticMatchers{staticMatch}
 
 	var replacer Replacer = strings.NewReplacer()
 	if flagValues.kube {
-		replacer, err = NewKubeReplacer()
+		kr, err := NewKubeReplacer()
 		if err != nil {
 			panic(err.Error())
 		}
+		replacer = kr
+		matchers = NewKubeMatcher(staticMatch, kr, ParseColors(cfg.Colors))
 	}
 
 	w := io.MultiWriter(os.Stdout)
@@ -77,7 +80,7 @@ func main() {
 			panic(err.Error())
 		}
 		r := replacer.Replace(line)
-		m := FindAllMatches(matchers, r)
+		m := FindAllMatches(matchers.GetMatchers(), r)
 		o := getLine(m, r)
 		w.Write([]byte(o))
 	}

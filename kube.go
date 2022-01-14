@@ -2,9 +2,12 @@ package main
 
 import (
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
+	"github.com/howardjohn/log-helper/pkg/color"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -82,7 +85,6 @@ func (kr *KubeReplacer) Replace(s string) string {
 }
 
 func (kr *KubeReplacer) ObjectHandler(extract func(o runtime.Object) map[string]string) cache.ResourceEventHandler {
-
 	single := func(obj interface{}) {
 		o := extractObject(obj)
 		if o == nil {
@@ -146,4 +148,49 @@ func extractObject(obj interface{}) runtime.Object {
 		}
 	}
 	return o
+}
+
+type MatcherProvider interface {
+	GetMatchers() []*Matcher
+}
+
+type StaticMatchers struct{ Matchers []*Matcher }
+
+func (s StaticMatchers) GetMatchers() []*Matcher {
+	return s.Matchers
+}
+
+type KubeMatcher struct {
+	matchers []*Matcher
+	replacer *KubeReplacer
+	colors   []color.Color
+}
+
+func (s KubeMatcher) GetMatchers() []*Matcher {
+	s.replacer.mu.RLock()
+	replacements := make([]string, 0, len(s.replacer.replacements))
+	for _, name := range s.replacer.replacements {
+		replacements = append(replacements, name)
+	}
+	s.replacer.mu.RUnlock()
+	sort.Slice(replacements, func(i, j int) bool {
+		return len(replacements[i]) > len(replacements[j])
+	})
+	replacementMatchers := make([]*Matcher, 0, len(replacements))
+	for i, r := range replacements {
+		rx := compileRegex(regexp.QuoteMeta(r))
+		replacementMatchers = append(replacementMatchers, &Matcher{
+			r:        rx,
+			variants: map[string]int{},
+			color:    ExtrapolateColorList(s.colors, i+len(s.matchers), len(replacements)+len(s.matchers)),
+		})
+	}
+	matchers := make([]*Matcher, 0, len(s.matchers)+len(replacements))
+	matchers = append(matchers, s.matchers...)
+	matchers = append(matchers, replacementMatchers...)
+	return matchers
+}
+
+func NewKubeMatcher(matchers []*Matcher, replacer *KubeReplacer, colors []color.Color) KubeMatcher {
+	return KubeMatcher{matchers, replacer, colors}
 }
