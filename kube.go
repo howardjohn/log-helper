@@ -172,6 +172,10 @@ func (s *KubeMatcher) GetMatchers() []*Matcher {
 	s.replacer.mu.RLock()
 	uniqReplacements := make(map[string]struct{}, len(s.replacer.replacements))
 	for _, name := range s.replacer.replacements {
+		if len(name) < 3 {
+			// Too small to be useful
+			continue
+		}
 		uniqReplacements[name] = struct{}{}
 	}
 	s.replacer.mu.RUnlock()
