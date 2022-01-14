@@ -110,6 +110,7 @@ func (kr *KubeReplacer) ObjectHandler(extract func(o runtime.Object) map[string]
 }
 
 func (kr *KubeReplacer) handle(extract map[string]string) {
+	delete(extract, "")
 	kr.mu.RLock()
 	update := false
 	for k, v := range extract {
