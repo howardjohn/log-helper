@@ -67,6 +67,10 @@ func NewKubeReplacer() (*KubeReplacer, error) {
 	}))
 	factory.Core().V1().Pods().Informer().AddEventHandler(r.ObjectHandler(func(o runtime.Object) map[string]string {
 		p := o.(*v1.Pod)
+		if p.Spec.HostNetwork {
+			// Node will find it
+			return nil
+		}
 		return map[string]string{
 			p.Status.PodIP: p.Name,
 		}
@@ -128,11 +132,17 @@ func (kr *KubeReplacer) handle(extract map[string]string) {
 	for k, v := range extract {
 		kr.replacements[k] = v
 	}
-	kvlist := make([]string, 0, len(kr.replacements)*2)
-	for k, v := range kr.replacements {
-		kvlist = append(kvlist, k, v)
+	keys := make([]string, 0, len(kr.replacements))
+	for k := range kr.replacements {
+		keys = append(keys, k)
 	}
-	// TODO: better ordering? Key is IP so probably no risk for now
+	sort.SliceStable(keys, func(i, j int) bool {
+		return len(kr.replacements[keys[i]]) < len(kr.replacements[keys[j]])
+	})
+	kvlist := make([]string, 0, len(kr.replacements)*2)
+	for _, k := range keys {
+		kvlist = append(kvlist, k, kr.replacements[k])
+	}
 	kr.Replacer = strings.NewReplacer(kvlist...)
 }
 
