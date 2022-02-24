@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -31,7 +32,11 @@ type KubeReplacer struct {
 var _ Replacer = &KubeReplacer{}
 
 func NewKubeReplacer() (*KubeReplacer, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
+	cfg := filepath.Join(homedir.HomeDir(), ".kube", "config")
+	if c := os.Getenv("KUBECONFIG"); c != "" {
+		cfg = c
+	}
+	config, err := clientcmd.BuildConfigFromFlags("", cfg)
 	if err != nil {
 		return nil, err
 	}
