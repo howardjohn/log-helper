@@ -75,8 +75,10 @@ func NewKubeReplacer(translateIPs bool) (*KubeReplacer, error) {
 	factory.Core().V1().Pods().Informer().AddEventHandler(r.ObjectHandler(func(o runtime.Object) map[string]string {
 		p := o.(*v1.Pod)
 		if p.Spec.HostNetwork {
-			// Node will find it
-			return nil
+			// Node will find it. Just return a map of ourself so the pod name is highlighted
+			return map[string]string{
+				p.Name: p.Name,
+			}
 		}
 		return map[string]string{
 			p.Status.PodIP: p.Name,
