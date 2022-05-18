@@ -27,11 +27,12 @@ type KubeReplacer struct {
 	*strings.Replacer
 	mu           sync.RWMutex
 	replacements map[string]string
+	translateIPs bool
 }
 
 var _ Replacer = &KubeReplacer{}
 
-func NewKubeReplacer() (*KubeReplacer, error) {
+func NewKubeReplacer(translateIPs bool) (*KubeReplacer, error) {
 	cfg := filepath.Join(homedir.HomeDir(), ".kube", "config")
 	if c := os.Getenv("KUBECONFIG"); c != "" {
 		cfg = c
@@ -47,6 +48,7 @@ func NewKubeReplacer() (*KubeReplacer, error) {
 	r := &KubeReplacer{
 		replacements: map[string]string{},
 		Replacer:     strings.NewReplacer(),
+		translateIPs: translateIPs,
 	}
 	factory := informers.NewSharedInformerFactory(client, 0)
 	factory.Core().V1().Nodes().Informer().AddEventHandler(r.ObjectHandler(func(o runtime.Object) map[string]string {
@@ -87,6 +89,9 @@ func NewKubeReplacer() (*KubeReplacer, error) {
 }
 
 func (kr *KubeReplacer) Replace(s string) string {
+	if !kr.translateIPs {
+		return s
+	}
 	kr.mu.RLock()
 	repl := kr.Replacer
 	kr.mu.RUnlock()
@@ -186,12 +191,24 @@ type KubeMatcher struct {
 func (s *KubeMatcher) GetMatchers() []*Matcher {
 	s.replacer.mu.RLock()
 	uniqReplacements := make(map[string]struct{}, len(s.replacer.replacements))
-	for _, name := range s.replacer.replacements {
-		if len(name) < 3 {
-			// Too small to be useful
-			continue
+	if s.replacer.translateIPs {
+		for _, name := range s.replacer.replacements {
+			if len(name) < 3 {
+				// Too small to be useful
+				continue
+			}
+			uniqReplacements[name] = struct{}{}
 		}
-		uniqReplacements[name] = struct{}{}
+	} else {
+		// Add name AND IP
+		for ip, name := range s.replacer.replacements {
+			uniqReplacements[ip] = struct{}{}
+			if len(name) < 3 {
+				// Too small to be useful
+				continue
+			}
+			uniqReplacements[name] = struct{}{}
+		}
 	}
 	s.replacer.mu.RUnlock()
 	keys := make([]string, 0, len(uniqReplacements))

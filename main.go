@@ -16,6 +16,7 @@ type flags struct {
 	caseInsensitive bool
 	filterUnmatched bool
 	kube            bool
+	kubelight       bool
 
 	preset string
 }
@@ -27,7 +28,8 @@ var flagValues = flags{
 func init() {
 	flag.BoolVar(&flagValues.colorTest, "test-colors", flagValues.colorTest, "test color support")
 	flag.BoolVar(&flagValues.caseInsensitive, "i", flagValues.caseInsensitive, "case insensitive")
-	flag.BoolVar(&flagValues.kube, "k", flagValues.kube, "replace kubernetes IPs with names")
+	flag.BoolVar(&flagValues.kube, "k", flagValues.kube, "replace Kubernetes IPs with names and highlight")
+	flag.BoolVar(&flagValues.kubelight, "kk", flagValues.kubelight, "hightlight Kubernetes IPs with names")
 	flag.BoolVar(&flagValues.runLogs, "logs", flagValues.runLogs, "run log highlighter")
 
 	flag.StringVar(&flagValues.preset, "preset", flagValues.preset, "preset configuration to use")
@@ -60,8 +62,8 @@ func main() {
 	var matchers MatcherProvider = StaticMatchers{staticMatch}
 
 	var replacer Replacer = strings.NewReplacer()
-	if flagValues.kube {
-		kr, err := NewKubeReplacer()
+	if flagValues.kube || flagValues.kubelight {
+		kr, err := NewKubeReplacer(!flagValues.kubelight)
 		if err != nil {
 			panic(err.Error())
 		}
