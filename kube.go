@@ -149,7 +149,8 @@ func (kr *KubeReplacer) handle(extract map[string]string) {
 		keys = append(keys, k)
 	}
 	sort.SliceStable(keys, func(i, j int) bool {
-		return len(kr.replacements[keys[i]]) < len(kr.replacements[keys[j]])
+		// Ensure longest IP is first
+		return len(keys[i]) > len(keys[j])
 	})
 	kvlist := make([]string, 0, len(kr.replacements)*2)
 	for _, k := range keys {
