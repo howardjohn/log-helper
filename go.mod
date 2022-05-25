@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/gookit/color v1.5.0
+	github.com/mattn/go-isatty v0.0.14
 	github.com/mkmik/argsort v1.1.0
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0

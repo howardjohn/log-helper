@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/mattn/go-isatty"
 )
 
 type flags struct {
@@ -18,11 +20,13 @@ type flags struct {
 	kube            bool
 	kubelight       bool
 
-	preset string
+	preset    string
+	colorMode string
 }
 
 var flagValues = flags{
-	preset: "default",
+	preset:    "default",
+	colorMode: "on",
 }
 
 func init() {
@@ -32,6 +36,7 @@ func init() {
 	flag.BoolVar(&flagValues.kubelight, "kk", flagValues.kubelight, "hightlight Kubernetes IPs with names")
 	flag.BoolVar(&flagValues.runLogs, "logs", flagValues.runLogs, "run log highlighter")
 
+	flag.StringVar(&flagValues.colorMode, "color", flagValues.colorMode, "whether color is used (on, off, auto)")
 	flag.StringVar(&flagValues.preset, "preset", flagValues.preset, "preset configuration to use")
 	flag.StringVar(&flagValues.preset, "p", flagValues.preset, "preset configuration to use (shorthand)")
 	flag.BoolVar(&flagValues.filterUnmatched, "filter", flagValues.filterUnmatched, "filter unmatched lines")
@@ -42,6 +47,14 @@ func main() {
 	cfg, err := ReadConfig(flagValues.preset)
 	if err != nil {
 		panic(err.Error())
+	}
+
+	if flagValues.colorMode == "auto" {
+		if isatty.IsTerminal(os.Stdout.Fd()) {
+			flagValues.colorMode = "on"
+		} else {
+			flagValues.colorMode = "off"
+		}
 	}
 
 	if flagValues.colorTest {
