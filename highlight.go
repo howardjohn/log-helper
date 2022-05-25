@@ -37,7 +37,11 @@ func getLine(matches []ColoredIndexRange, line string) string {
 			continue
 		}
 		sb.WriteString(line[prev:match.start])
-		sb.WriteString(match.color.Sprint(line[match.start:match.stop]))
+		if flagValues.colorMode == "off" {
+			sb.WriteString(line[match.start:match.stop])
+		} else {
+			sb.WriteString(match.color.Sprint(line[match.start:match.stop]))
+		}
 		prev = match.stop
 	}
 	sb.WriteString(line[prev:])
