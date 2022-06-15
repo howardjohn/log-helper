@@ -88,15 +88,19 @@ func main() {
 	r := bufio.NewReader(os.Stdin)
 	for {
 		line, err := r.ReadString('\n')
-		if err == io.EOF {
+		// Last line may return EOF and some data
+		if len(line) == 0 && err == io.EOF {
 			break
 		}
-		if err != nil {
+		if err != nil && err != io.EOF {
 			panic(err.Error())
 		}
 		r := replacer.Replace(line)
 		m := FindAllMatches(matchers.GetMatchers(), r)
 		o := getLine(m, r)
 		w.Write([]byte(o))
+		if err == io.EOF {
+			break
+		}
 	}
 }
