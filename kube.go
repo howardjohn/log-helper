@@ -64,8 +64,10 @@ func NewKubeReplacer(translateIPs bool) (*KubeReplacer, error) {
 	factory.Core().V1().Services().Informer().AddEventHandler(r.ObjectHandler(func(o runtime.Object) map[string]string {
 		s := o.(*v1.Service)
 		m := map[string]string{}
-		if s.Spec.ClusterIP != "None" && s.Spec.ClusterIP != "" {
-			m[s.Spec.ClusterIP] = s.Name
+		for _, cip := range s.Spec.ClusterIPs {
+			if cip != "None" && cip != "" {
+				m[cip] = s.Name
+			}
 		}
 		for _, a := range s.Status.LoadBalancer.Ingress {
 			m[a.IP] = s.Name + "-loadbalancer"
@@ -80,9 +82,11 @@ func NewKubeReplacer(translateIPs bool) (*KubeReplacer, error) {
 				p.Name: p.Name,
 			}
 		}
-		return map[string]string{
-			p.Status.PodIP: p.Name,
+		m := map[string]string{}
+		for _, i := range p.Status.PodIPs {
+			m[i.IP]= p.Name
 		}
+		return m
 	}))
 	stop := make(chan struct{})
 	factory.Start(stop)
